@@ -9,6 +9,8 @@ import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import no.gunbang.market.common.entity.QItem;
 import no.gunbang.market.common.query.CursorStrategy;
@@ -204,10 +206,25 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
         if (searchKeyword != null && !searchKeyword.isBlank()) {
             builder.and(item.name.containsIgnoreCase(searchKeyword));
         }
-        builder
-                .and(market.status.eq(Status.ON_SALE));
+        builder.and(market.status.eq(Status.ON_SALE));
 
-        JPQLQuery<MarketListResponseDto> query = queryFactory
+        //커버링 인덱스로 item_id만 먼저 가져오기
+        List<Long> itemIds = queryFactory
+                .select(market.item.id)
+                .from(market)
+                .where(builder)
+                .groupBy(market.item.id)
+                .orderBy(determineSorting(sortBy, sortDirection))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        if (itemIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        //실제 데이터 조회 (itemId 기반 join)
+        List<MarketListResponseDto> content = queryFactory
                 .select(new QMarketListResponseDto(
                         item.id,
                         item.name,
@@ -216,18 +233,20 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                 ))
                 .from(market)
                 .join(market.item, item)
-                .where(builder)
+                .where(
+                        market.status.eq(Status.ON_SALE),
+                        item.id.in(itemIds)
+                )
                 .groupBy(item.id, item.name)
-                .orderBy(determineSorting(sortBy, sortDirection))
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize());
+                .orderBy(orderByField(itemIds)) //id 정렬 순서 유지
+                .fetch();
 
-        Long count = queryFactory
-                .select(item.count())
-                .from(item)
-                .fetchOne();
+        return new PageImpl<>(content, pageable, itemIds.size());
+    }
 
-        return new PageImpl<>(query.fetch(), pageable, count == null ? 0 : count);
+    private OrderSpecifier<?> orderByField(List<Long> ids) {
+        String template = "FIELD({0}, " + ids.stream().map(String::valueOf).collect(Collectors.joining(", ")) + ")";
+        return Expressions.numberTemplate(Integer.class, template, QItem.item.id).asc();
     }
 
     /*
