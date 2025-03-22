@@ -9,6 +9,7 @@ import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import no.gunbang.market.common.entity.QItem;
@@ -187,53 +188,75 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
 
     @Override
     public Page<AuctionListResponseDto> findPopularAuctionItems(LocalDateTime startDate, Pageable pageable) {
-        QBid bid = QBid.bid;
         QAuction auction = QAuction.auction;
+        QBid bid = QBid.bid;
+        QItem item = QItem.item;
 
-        BooleanBuilder builder = new BooleanBuilder();
-        builder
-                .and(auction.status.eq(Status.ON_SALE))
-                .and(auction.createdAt.goe(startDate));
+        List<Long> auctionIds = queryFactory
+                .select(auction.id)
+                .from(auction)
+                .where(
+                        auction.status.eq(Status.ON_SALE),
+                        auction.createdAt.goe(startDate)
+                )
+                .orderBy(auction.bidderCount.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
 
-        JPQLQuery<AuctionListResponseDto> query = queryFactory
+        if (auctionIds.isEmpty()) return Page.empty(pageable);
+
+        List<AuctionListResponseDto> results = queryFactory
                 .select(new QAuctionListResponseDto(
                         auction.id,
-                        auction.item.id,
-                        auction.item.name,
+                        item.id,
+                        item.name,
                         auction.startingPrice,
                         bid.bidPrice,
                         auction.dueDate,
                         auction.bidderCount
                 ))
-                .from(bid)
-                .join(bid.auction, auction)
-                .where(builder)
-                .groupBy(auction.id, auction.item.id, auction.item.name, auction.startingPrice, auction.dueDate, bid.bidPrice, auction.bidderCount)
-                .orderBy(auction.bidderCount.desc())
-                .limit(pageable.getPageSize())
-                .offset(pageable.getOffset());
+                .from(auction)
+                .join(auction.item, item)
+                .leftJoin(bid).on(bid.auction.id.eq(auction.id))
+                .where(auction.id.in(auctionIds))
+                .groupBy(auction.id, item.id, item.name, auction.startingPrice, auction.dueDate, bid.bidPrice, auction.bidderCount)
+                .orderBy(orderByField(auctionIds))
+                .fetch();
 
-        return new PageImpl<>(query.fetch(), pageable, POPULAR_LIMIT);
+        return new PageImpl<>(results, pageable, auctionIds.size());
     }
+
 
     @Override
     public Page<AuctionListResponseDto> findAllAuctionItems(LocalDateTime startDate, String searchKeyword, String sortBy, String sortDirection, Pageable pageable) {
         QAuction auction = QAuction.auction;
         QBid bid = QBid.bid;
+        QItem item = QItem.item;
 
         BooleanBuilder builder = new BooleanBuilder();
         if (searchKeyword != null && !searchKeyword.isBlank()) {
-            builder.and(auction.item.name.containsIgnoreCase(searchKeyword));
+            builder.and(item.name.containsIgnoreCase(searchKeyword));
         }
-        builder
-                .and(auction.status.eq(Status.ON_SALE))
+        builder.and(auction.status.eq(Status.ON_SALE))
                 .and(auction.createdAt.goe(startDate));
 
-        JPAQuery<AuctionListResponseDto> query = queryFactory
+        List<Long> auctionIds = queryFactory
+                .select(auction.id)
+                .from(auction)
+                .where(builder)
+                .orderBy(determineSorting(sortBy, sortDirection))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        if (auctionIds.isEmpty()) return Page.empty(pageable);
+
+        List<AuctionListResponseDto> results = queryFactory
                 .select(new QAuctionListResponseDto(
                         auction.id,
-                        auction.item.id,
-                        auction.item.name,
+                        item.id,
+                        item.name,
                         auction.startingPrice,
                         bid.bidPrice,
                         auction.dueDate,
@@ -241,11 +264,11 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
                 ))
                 .from(auction)
                 .leftJoin(bid).on(auction.id.eq(bid.auction.id))
-                .where(builder)
-                .groupBy(auction.id, auction.item.id, auction.item.name, auction.startingPrice, auction.dueDate, bid.bidPrice, auction.bidderCount)
-                .orderBy(determineSorting(sortBy, sortDirection))
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize());
+                .join(auction.item, item)
+                .where(auction.id.in(auctionIds))
+                .groupBy(auction.id, item.id, item.name, auction.startingPrice, auction.dueDate, bid.bidPrice, auction.bidderCount)
+                .orderBy(orderByField(auctionIds))
+                .fetch();
 
         Long count = queryFactory
                 .select(auction.countDistinct())
@@ -253,7 +276,12 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
                 .where(builder)
                 .fetchOne();
 
-        return new PageImpl<>(query.fetch(), pageable, count == null ? 0 : count);
+        return new PageImpl<>(results, pageable, count == null ? 0 : count);
+    }
+
+    private OrderSpecifier<?> orderByField(List<Long> ids) {
+        String template = "FIELD({0}, " + ids.stream().map(String::valueOf).collect(Collectors.joining(", ")) + ")";
+        return Expressions.numberTemplate(Integer.class, template, QAuction.auction.id).asc();
     }
 
     private CursorStrategy<AuctionCursorValues> getCursorStrategy(String sortBy) {

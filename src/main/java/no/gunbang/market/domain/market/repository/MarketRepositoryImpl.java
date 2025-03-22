@@ -173,7 +173,6 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
         QTradeCount tradeCount = QTradeCount.tradeCount;
         QItem item = QItem.item;
 
-        //커버링 인덱스로 item_id만 먼저 가져오기
         List<Long> itemIds = queryFactory
                 .select(tradeCount.itemId)
                 .from(tradeCount)
@@ -190,7 +189,6 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
             return Page.empty(pageable);
         }
 
-        //실제 데이터 조회 (itemId 기반)
         List<MarketPopularResponseDto> results = queryFactory
                 .select(new QMarketPopularResponseDto(
                         item.id,
@@ -230,7 +228,6 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
         }
         builder.and(market.status.eq(Status.ON_SALE));
 
-        //커버링 인덱스로 item_id만 먼저 가져오기
         List<Long> itemIds = queryFactory
                 .select(market.item.id)
                 .from(market)
@@ -245,7 +242,6 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
             return Page.empty(pageable);
         }
 
-        //실제 데이터 조회 (itemId 기반 join)
         List<MarketListResponseDto> content = queryFactory
                 .select(new QMarketListResponseDto(
                         item.id,
@@ -260,7 +256,7 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                         item.id.in(itemIds)
                 )
                 .groupBy(item.id, item.name)
-                .orderBy(orderByField(itemIds)) //id 정렬 순서 유지
+                .orderBy(orderByField(itemIds))
                 .fetch();
 
         return new PageImpl<>(content, pageable, itemIds.size());
