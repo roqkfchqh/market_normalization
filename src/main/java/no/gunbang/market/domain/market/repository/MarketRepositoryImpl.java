@@ -179,7 +179,7 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                         tradeCount.count.intValue()
                 ))
                 .from(market)
-                .leftJoin(tradeCount).on(market.item.id.eq(tradeCount.itemId))
+                .join(tradeCount).on(market.item.id.eq(tradeCount.itemId))
                 .where(market.status.eq(Status.ON_SALE)
                         .and(market.createdAt.goe(startDate))
                 )
