@@ -5,10 +5,13 @@ FROM trade
 JOIN market ON trade.market_id = market.id
 GROUP BY market.item_id;
 
-#조회용 인덱스들
-CREATE INDEX idx_tradeCount_count_item_desc ON trade_count (count desc, item_id desc);
-CREATE INDEX idx_auction_filter ON auction (status, created_at, bidder_count, id);
-CREATE INDEX idx_market_status_created_item ON market (status, created_at, item_id, amount, price);
+#조회용 커버링 인덱스
+CREATE INDEX idx_auction_covering
+    ON auction (status DESC, created_at DESC, bidder_count DESC, id DESC);
+CREATE INDEX idx_market_covering
+    ON market (status DESC, created_at DESC, item_id DESC, amount DESC, price DESC);
+CREATE INDEX idx_trade_count_order
+    ON trade_count (count DESC, item_id);
 
 #스케줄링용 인덱스
 CREATE INDEX idx_auction_duedate ON auction (due_date DESC);
