@@ -5,7 +5,6 @@ import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -172,24 +171,47 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
     public Page<MarketPopularResponseDto> findPopularMarketItems(LocalDateTime startDate, Pageable pageable) {
         QMarket market = QMarket.market;
         QTradeCount tradeCount = QTradeCount.tradeCount;
-        JPQLQuery<MarketPopularResponseDto> query = queryFactory
+        QItem item = QItem.item;
+
+        //커버링 인덱스로 item_id만 먼저 가져오기
+        List<Long> itemIds = queryFactory
+                .select(tradeCount.itemId)
+                .from(tradeCount)
+                .join(market).on(market.item.id.eq(tradeCount.itemId))
+                .where(market.status.eq(Status.ON_SALE)
+                        .and(market.createdAt.goe(startDate)))
+                .groupBy(tradeCount.itemId)
+                .orderBy(tradeCount.count.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        if (itemIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        //실제 데이터 조회 (itemId 기반)
+        List<MarketPopularResponseDto> results = queryFactory
                 .select(new QMarketPopularResponseDto(
-                        market.item.id,
-                        market.item.name,
+                        item.id,
+                        item.name,
                         market.amount.sum().coalesce(0),
                         market.price.min().coalesce(0L),
                         tradeCount.count.intValue()
                 ))
                 .from(market)
+                .join(item).on(item.id.eq(market.item.id))
                 .join(tradeCount).on(market.item.id.eq(tradeCount.itemId))
-                .where(market.status.eq(Status.ON_SALE)
-                        .and(market.createdAt.goe(startDate))
+                .where(
+                        market.status.eq(Status.ON_SALE),
+                        market.createdAt.goe(startDate),
+                        market.item.id.in(itemIds)
                 )
-                .groupBy(market.item.id, market.item.name, tradeCount.count)
-                .orderBy(tradeCount.count.desc())
-                .limit(pageable.getPageSize())
-                .offset(pageable.getOffset());
-        return new PageImpl<>(query.fetch(), pageable, POPULAR_LIMIT);
+                .groupBy(item.id, item.name, tradeCount.count)
+                .orderBy(orderByField(itemIds))
+                .fetch();
+
+        return new PageImpl<>(results, pageable, POPULAR_LIMIT);
     }
 
     @Override
