@@ -178,7 +178,6 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
             ))
             .from(auction)
             .leftJoin(bid).on(auction.id.eq(bid.auction.id))
-            .leftJoin(item).on(auction.item.id.eq(item.id))
             .where(builder)
             .groupBy(auction.id, auction.item.id, auction.item.name, auction.startingPrice, auction.dueDate, bid.bidPrice, auction.bidderCount)
             .orderBy(determineSorting(sortBy, sortDirection))
@@ -221,7 +220,6 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
     public Page<AuctionListResponseDto> findAllAuctionItems(LocalDateTime startDate, String searchKeyword, String sortBy, String sortDirection, Pageable pageable) {
         QAuction auction = QAuction.auction;
         QBid bid = QBid.bid;
-        QItem item = QItem.item;
 
         BooleanBuilder builder = new BooleanBuilder();
         if (searchKeyword != null && !searchKeyword.isBlank()) {
@@ -243,7 +241,6 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
                 ))
                 .from(auction)
                 .leftJoin(bid).on(auction.id.eq(bid.auction.id))
-                .leftJoin(item).on(auction.item.id.eq(item.id))
                 .where(builder)
                 .groupBy(auction.id, auction.item.id, auction.item.name, auction.startingPrice, auction.dueDate, bid.bidPrice, auction.bidderCount)
                 .orderBy(determineSorting(sortBy, sortDirection))
