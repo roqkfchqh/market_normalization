@@ -173,19 +173,28 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
         QTradeCount tradeCount = QTradeCount.tradeCount;
         QItem item = QItem.item;
 
-        List<Long> itemIds = queryFactory
+        List<Long> rawTopItemIds = queryFactory
                 .select(tradeCount.itemId)
                 .from(tradeCount)
-                .join(market).on(market.item.id.eq(tradeCount.itemId))
-                .where(market.status.eq(Status.ON_SALE)
-                        .and(market.createdAt.goe(startDate)))
-                .groupBy(tradeCount.itemId)
                 .orderBy(tradeCount.count.desc())
+                .limit(POPULAR_LIMIT)   //1만개 중 200개라 이렇게 가져와도 괜찮음(인기순이라 뒤에서 짤릴 일 없음)
+                .fetch();
+
+        List<Long> filteredItemIds = queryFactory
+                .select(market.item.id)
+                .from(market)
+                .where(
+                        market.item.id.in(rawTopItemIds),
+                        market.status.eq(Status.ON_SALE),
+                        market.createdAt.goe(startDate)
+                )
+                .groupBy(market.item.id)
+                .orderBy(orderByField(rawTopItemIds))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
 
-        if (itemIds.isEmpty()) {
+        if (filteredItemIds.isEmpty()) {
             return Page.empty(pageable);
         }
 
@@ -201,15 +210,16 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                 .join(item).on(item.id.eq(market.item.id))
                 .join(tradeCount).on(market.item.id.eq(tradeCount.itemId))
                 .where(
+                        market.item.id.in(filteredItemIds),
                         market.status.eq(Status.ON_SALE),
-                        market.createdAt.goe(startDate),
-                        market.item.id.in(itemIds)
+                        market.createdAt.goe(startDate)
                 )
                 .groupBy(item.id, item.name, tradeCount.count)
-                .orderBy(orderByField(itemIds))
+                .orderBy(orderByField(filteredItemIds))
                 .fetch();
 
         return new PageImpl<>(results, pageable, POPULAR_LIMIT);
+
     }
 
     @Override
