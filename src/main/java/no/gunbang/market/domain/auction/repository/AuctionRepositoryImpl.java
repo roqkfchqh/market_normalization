@@ -224,7 +224,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
                 .orderBy(orderByField(auctionIds))
                 .fetch();
 
-        return new PageImpl<>(results, pageable, auctionIds.size());
+        return new PageImpl<>(results, pageable, POPULAR_LIMIT);
     }
 
 
