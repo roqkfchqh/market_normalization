@@ -269,7 +269,12 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                 .orderBy(orderByField(itemIds))
                 .fetch();
 
-        return new PageImpl<>(content, pageable, itemIds.size());
+        Long count = queryFactory
+                .select(item.countDistinct())
+                .from(item)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, count == null ? 0 : count);
     }
 
     private OrderSpecifier<?> orderByField(List<Long> ids) {
