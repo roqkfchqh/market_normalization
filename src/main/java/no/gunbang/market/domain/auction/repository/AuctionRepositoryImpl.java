@@ -7,6 +7,7 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
@@ -225,19 +226,28 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
         return new PageImpl<>(results, pageable, POPULAR_LIMIT);
     }
 
-
     @Override
     public Page<AuctionListResponseDto> findAllAuctionItems(LocalDateTime startDate, String searchKeyword, String sortBy, String sortDirection, Pageable pageable) {
         QAuction auction = QAuction.auction;
         QBid bid = QBid.bid;
         QItem item = QItem.item;
-
         BooleanBuilder builder = new BooleanBuilder();
         if (searchKeyword != null && !searchKeyword.isBlank()) {
             builder.and(item.name.containsIgnoreCase(searchKeyword));
         }
         builder.and(auction.status.eq(Status.ON_SALE))
                 .and(auction.createdAt.goe(startDate));
+
+        CompletableFuture<Long> countFuture = null;
+        if (pageable.getPageNumber() >= 145000) {
+            countFuture = CompletableFuture.supplyAsync(() ->
+                    queryFactory
+                            .select(auction.countDistinct())
+                            .from(auction)
+                            .where(builder)
+                            .fetchOne()
+            );
+        }
 
         List<Long> auctionIds = queryFactory
                 .select(auction.id)
@@ -268,13 +278,17 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
                 .orderBy(orderByField(auctionIds))
                 .fetch();
 
-        Long count = queryFactory
-                .select(auction.countDistinct())
-                .from(auction)
-                .where(builder)
-                .fetchOne();
+        Long count = 0L;
+        try {
+            if (countFuture != null) {
+                count = countFuture.get();
+                if (count == null) count = 0L;
+            }
+        } catch (Exception e) {
+            count = 0L;
+        }
 
-        return new PageImpl<>(results, pageable, count == null ? 0 : count);
+        return new PageImpl<>(results, pageable, count);
     }
 
     private OrderSpecifier<?> orderByField(List<Long> ids) {

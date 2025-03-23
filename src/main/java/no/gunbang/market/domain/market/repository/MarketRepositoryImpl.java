@@ -8,6 +8,7 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
@@ -238,6 +239,16 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
         }
         builder.and(market.status.eq(Status.ON_SALE));
 
+        CompletableFuture<Long> countFuture = null;
+        if (pageable.getPageNumber() >= 950) {
+            countFuture = CompletableFuture.supplyAsync(() ->
+                    queryFactory
+                            .select(item.countDistinct())
+                            .from(item)
+                            .fetchOne()
+            );
+        }
+
         List<Long> itemIds = queryFactory
                 .select(market.item.id)
                 .from(market)
@@ -269,12 +280,17 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                 .orderBy(orderByField(itemIds))
                 .fetch();
 
-        Long count = queryFactory
-                .select(item.countDistinct())
-                .from(item)
-                .fetchOne();
+        Long count = 0L;
+        try {
+            if (countFuture != null) {
+                count = countFuture.get();
+                if (count == null) count = 0L;
+            }
+        } catch (Exception e) {
+            count = 0L;
+        }
 
-        return new PageImpl<>(content, pageable, count == null ? 0 : count);
+        return new PageImpl<>(content, pageable, count);
     }
 
     private OrderSpecifier<?> orderByField(List<Long> ids) {
