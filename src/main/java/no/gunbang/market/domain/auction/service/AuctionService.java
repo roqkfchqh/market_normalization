@@ -34,8 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuctionService {
 
-    private static final LocalDateTime START_DATE = LocalDateTime.now().minusDays(30);
-
     private final AuctionRepository auctionRepository;
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
@@ -44,7 +42,7 @@ public class AuctionService {
 
     public List<AuctionListResponseDto> getPopularsCursor(Long lastBidderCount, Long lastAuctionId) {
         return auctionRepository.findPopularAuctionItemsCursor(
-            START_DATE,
+            getStartDate(),
             lastBidderCount,
             lastAuctionId
         );
@@ -58,7 +56,7 @@ public class AuctionService {
         AuctionCursorValues auctionCursorValues
     ) {
         return auctionRepository.findAllAuctionItemsCursor(
-            START_DATE,
+            getStartDate(),
             searchKeyword,
             sortBy,
             sortDirection,
@@ -69,7 +67,7 @@ public class AuctionService {
 
     public Page<AuctionListResponseDto> getPopulars(Pageable pageable) {
         return auctionRepository.findPopularAuctionItems(
-                START_DATE,
+                getStartDate(),
                 pageable
         );
     }
@@ -81,7 +79,7 @@ public class AuctionService {
             String sortDirection
     ) {
         return auctionRepository.findAllAuctionItems(
-                START_DATE,
+                getStartDate(),
                 searchKeyword,
                 sortBy,
                 sortDirection,
@@ -197,6 +195,10 @@ public class AuctionService {
     /*
     helper
      */
+    private LocalDateTime getStartDate() {
+        return LocalDateTime.now().minusDays(30);
+    }
+
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
             .orElseThrow(
