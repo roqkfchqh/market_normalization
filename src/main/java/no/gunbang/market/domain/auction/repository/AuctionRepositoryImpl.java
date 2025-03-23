@@ -7,13 +7,13 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import no.gunbang.market.common.entity.QItem;
 import no.gunbang.market.common.query.CursorStrategy;
 import no.gunbang.market.common.entity.Status;
+import no.gunbang.market.common.scheduler.CountCacheScheduler;
 import no.gunbang.market.domain.auction.cursor.AuctionCursorValues;
 import no.gunbang.market.domain.auction.cursor.AuctionDefaultCursorStrategy;
 import no.gunbang.market.domain.auction.cursor.CurrentMaxPriceCursorStrategy;
@@ -40,6 +40,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
     private static final int PAGE_SIZE = 10;
 
     private final JPAQueryFactory queryFactory;
+    private final CountCacheScheduler countCacheScheduler;
 
     @Override
     public List<BidHistoryResponseDto> findUserBidHistory(Long userId) {
@@ -238,17 +239,6 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
         builder.and(auction.status.eq(Status.ON_SALE))
                 .and(auction.createdAt.goe(startDate));
 
-        CompletableFuture<Long> countFuture = null;
-        if (pageable.getPageNumber() >= 145000) {
-            countFuture = CompletableFuture.supplyAsync(() ->
-                    queryFactory
-                            .select(auction.countDistinct())
-                            .from(auction)
-                            .where(builder)
-                            .fetchOne()
-            );
-        }
-
         List<Long> auctionIds = queryFactory
                 .select(auction.id)
                 .from(auction)
@@ -278,17 +268,7 @@ public class AuctionRepositoryImpl implements AuctionRepositoryCustom {
                 .orderBy(orderByField(auctionIds))
                 .fetch();
 
-        Long count = 0L;
-        try {
-            if (countFuture != null) {
-                count = countFuture.get();
-                if (count == null) count = 0L;
-            }
-        } catch (Exception e) {
-            count = 0L;
-        }
-
-        return new PageImpl<>(results, pageable, count);
+        return new PageImpl<>(results, pageable, countCacheScheduler.getCachedAuctionCount());
     }
 
     private OrderSpecifier<?> orderByField(List<Long> ids) {

@@ -8,13 +8,13 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import no.gunbang.market.common.entity.QItem;
 import no.gunbang.market.common.query.CursorStrategy;
 import no.gunbang.market.common.entity.Status;
+import no.gunbang.market.common.scheduler.CountCacheScheduler;
 import no.gunbang.market.domain.market.cursor.AmountCursorStrategy;
 import no.gunbang.market.domain.market.cursor.MarketCursorValues;
 import no.gunbang.market.domain.market.cursor.MarketDefaultCursorStrategy;
@@ -36,6 +36,7 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
     private static final int POPULAR_LIMIT = 200;
 
     private final JPAQueryFactory queryFactory;
+    private final CountCacheScheduler countCacheScheduler;
 
     @Override
     public List<TradeHistoryResponseDto> findUserTradeHistory(Long userId) {
@@ -239,16 +240,6 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
         }
         builder.and(market.status.eq(Status.ON_SALE));
 
-        CompletableFuture<Long> countFuture = null;
-        if (pageable.getPageNumber() >= 950) {
-            countFuture = CompletableFuture.supplyAsync(() ->
-                    queryFactory
-                            .select(item.countDistinct())
-                            .from(item)
-                            .fetchOne()
-            );
-        }
-
         List<Long> itemIds = queryFactory
                 .select(market.item.id)
                 .from(market)
@@ -280,17 +271,7 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                 .orderBy(orderByField(itemIds))
                 .fetch();
 
-        Long count = 0L;
-        try {
-            if (countFuture != null) {
-                count = countFuture.get();
-                if (count == null) count = 0L;
-            }
-        } catch (Exception e) {
-            count = 0L;
-        }
-
-        return new PageImpl<>(content, pageable, count);
+        return new PageImpl<>(content, pageable, countCacheScheduler.getCachedMarketCount());
     }
 
     private OrderSpecifier<?> orderByField(List<Long> ids) {
