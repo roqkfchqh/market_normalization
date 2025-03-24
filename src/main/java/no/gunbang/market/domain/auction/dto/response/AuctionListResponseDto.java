@@ -14,7 +14,7 @@ public class AuctionListResponseDto {
     private String itemName;
     private long startPrice;
     private long currentMaxPrice;
-    private LocalDateTime dueDate;
+    private String dueDate;
     private int bidCount;
 
     @QueryProjection
@@ -25,7 +25,7 @@ public class AuctionListResponseDto {
         this.itemName = itemName;
         this.startPrice = startPrice;
         this.currentMaxPrice = currentMaxPrice;
-        this.dueDate = dueDate;
+        this.dueDate = dueDate.toString();
         this.bidCount = bidCount;
     }
 }
