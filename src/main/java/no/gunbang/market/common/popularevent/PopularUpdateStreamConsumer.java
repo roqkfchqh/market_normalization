@@ -30,8 +30,6 @@ public class PopularUpdateStreamConsumer {
 
         if (records == null || records.isEmpty()) return;
 
-        log.info("Stream 이벤트 수신됨: {}", records.size());
-
         //이벤트 누적 개수 계산
         Map<String, Long> countByTarget = records.stream()
                 .map(MapRecord::getValue)
