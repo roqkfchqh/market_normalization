@@ -221,7 +221,6 @@ public class MarketRepositoryImpl implements MarketRepositoryCustom {
                 .fetch();
 
         return new PageImpl<>(results, pageable, POPULAR_LIMIT);
-
     }
 
     @Override

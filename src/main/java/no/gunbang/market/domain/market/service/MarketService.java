@@ -38,8 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MarketService {
 
-    private static final LocalDateTime START_DATE = LocalDateTime.now().minusDays(30);
-
     private final MarketRepository marketRepository;
     private final UserRepository userRepository;
     private final InventoryRepository inventoryRepository;
@@ -48,7 +46,7 @@ public class MarketService {
 
     public List<MarketPopularResponseDto> getPopularsCursor(Long lastTradeCount, Long lastItemId) {
         return marketRepository.findPopularMarketItemsCursor(
-            START_DATE,
+            getStartDate(),
             lastTradeCount,
             lastItemId
         );
@@ -72,7 +70,7 @@ public class MarketService {
 
     public Page<MarketPopularResponseDto> getPopulars(Pageable pageable) {
         return marketRepository.findPopularMarketItems(
-                START_DATE,
+                getStartDate(),
                 pageable
         );
     }
@@ -220,6 +218,10 @@ public class MarketService {
         } else {
             inventory.updateInventory(amount);
         }
+    }
+
+    private LocalDateTime getStartDate() {
+        return LocalDateTime.now().minusDays(30);
     }
 
     private User findUserById(Long userId) {
