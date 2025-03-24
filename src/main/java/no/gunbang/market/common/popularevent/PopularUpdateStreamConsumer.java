@@ -9,9 +9,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -21,33 +18,29 @@ public class PopularUpdateStreamConsumer {
     private final StringRedisTemplate redisTemplate;
     private final PopularUpdateAsync popularUpdateAsync;
 
-    private static final String STREAM_KEY = "stream:popular:update";
+    private static final String STREAM_PREFIX = "stream:popular:update:";
 
-    @Scheduled(fixedDelay = 1000) //1초마다 polling
-    public void pollStream() {
+    @Scheduled(fixedDelay = 1000)
+    public void pollMarketStream() {
+        pollStreamForTarget("MARKET", popularUpdateAsync::updateMarketPopulars);
+    }
+
+    @Scheduled(fixedDelay = 1000)
+    public void pollAuctionStream() {
+        pollStreamForTarget("AUCTION", popularUpdateAsync::updateAuctionPopulars);
+    }
+
+    private void pollStreamForTarget(String target, Runnable onUpdate) {
+        String streamKey = STREAM_PREFIX + target.toLowerCase();
         List<MapRecord<String, Object, Object>> records =
-                redisTemplate.opsForStream().read(StreamOffset.fromStart(STREAM_KEY));
+                redisTemplate.opsForStream().read(StreamOffset.fromStart(streamKey));
 
         if (records == null || records.isEmpty()) return;
 
-        //이벤트 누적 개수 계산
-        Map<String, Long> countByTarget = records.stream()
-                .map(MapRecord::getValue)
-                .map(data -> (String) data.get("event"))
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-
-        //마켓, 경매 둘 다 별도로 처리
-        countByTarget.forEach((target, count) -> {
-            if (count >= 3) {
-                if (target.equals("MARKET")) {
-                    popularUpdateAsync.updateMarketPopulars();
-                    redisTemplate.delete(STREAM_KEY);
-                }
-                else if (target.equals("AUCTION")) {
-                    popularUpdateAsync.updateAuctionPopulars();
-                    redisTemplate.delete(STREAM_KEY);
-                }
-            }
-        });
+        long count = records.size();
+        if (count >= 3) {
+            onUpdate.run();
+            redisTemplate.delete(streamKey);
+        }
     }
 }

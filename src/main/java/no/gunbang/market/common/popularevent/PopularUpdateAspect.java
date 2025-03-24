@@ -15,18 +15,16 @@ import java.util.Map;
 public class PopularUpdateAspect {
 
     private final StringRedisTemplate redisTemplate;
-    private static final String STREAM_KEY = "stream:popular:update";
+    private static final String STREAM_PREFIX = "stream:popular:update:";
 
     @Around("@annotation(triggerPopularUpdate)")
     public Object triggerPopularUpdate(ProceedingJoinPoint joinPoint, TriggerPopularUpdate triggerPopularUpdate) throws Throwable {
         Object result = joinPoint.proceed();
 
-        //Stream 에 이벤트 push
-        Map<String, String> data = Map.of(
-                "event", triggerPopularUpdate.target().name()
-        );
+        String target = triggerPopularUpdate.target().name();
+        String streamKey = STREAM_PREFIX + target.toLowerCase();
 
-        redisTemplate.opsForStream().add(STREAM_KEY, data);
+        redisTemplate.opsForStream().add(streamKey, Map.of("event", target));
         return result;
     }
 }
