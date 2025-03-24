@@ -2,12 +2,13 @@ package no.gunbang.market.common.popularevent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import no.gunbang.market.domain.auction.dto.response.AuctionListResponseDto;
 import no.gunbang.market.domain.auction.repository.AuctionRepository;
 import no.gunbang.market.domain.market.dto.response.MarketPopularResponseDto;
 import no.gunbang.market.domain.market.repository.MarketRepository;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,7 +31,7 @@ public class PopularUpdateAsync {
     private static final int POPULAR_LIMIT = 200;
 
     @Async
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void updateMarketPopulars() {
         Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
         Page<MarketPopularResponseDto> result = marketRepository.findPopularMarketItems(getStartDate(), pageable);
@@ -42,7 +43,7 @@ public class PopularUpdateAsync {
     }
 
     @Async
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void updateAuctionPopulars() {
         Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
         Page<AuctionListResponseDto> result = auctionRepository.findPopularAuctionItems(getStartDate(), pageable);
