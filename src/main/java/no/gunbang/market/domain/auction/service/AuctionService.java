@@ -1,9 +1,12 @@
 package no.gunbang.market.domain.auction.service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import no.gunbang.market.common.entity.Item;
 import no.gunbang.market.common.entity.ItemRepository;
@@ -27,7 +30,9 @@ import no.gunbang.market.domain.auction.repository.BidRepository;
 import no.gunbang.market.domain.user.entity.User;
 import no.gunbang.market.domain.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuctionService {
 
+    private final StringRedisTemplate redisTemplate;
     private final AuctionRepository auctionRepository;
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
@@ -68,11 +74,25 @@ public class AuctionService {
     }
 
     public Page<AuctionListResponseDto> getPopulars(Pageable pageable) {
-        return auctionRepository.findPopularAuctionItems(
-                getStartDate(),
-                pageable
-        );
+        String json = redisTemplate.opsForValue().get("popular:auction:items");
+        if (json == null) {
+            //fallback: 기존 쿼리
+            return auctionRepository.findPopularAuctionItems(getStartDate(), pageable);
+        }
+
+        List<AuctionListResponseDto> fullList = deserialize(json);
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), fullList.size());
+
+        if (start >= fullList.size()) {
+            return Page.empty(pageable);
+        }
+
+        List<AuctionListResponseDto> pageContent = fullList.subList(start, end);
+        return new PageImpl<>(pageContent, pageable, fullList.size());
     }
+
 
     public Page<AuctionListResponseDto> getAllAuctions(
             Pageable pageable,
@@ -221,5 +241,16 @@ public class AuctionService {
             .orElseThrow(
                 () -> new CustomException(ErrorCode.AUCTION_NOT_FOUND)
             );
+    }
+
+    private List<AuctionListResponseDto> deserialize(String json) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return Arrays.asList(
+                    mapper.readValue(json, AuctionListResponseDto[].class)
+            );
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("캐시 역직렬화 실패", e);
+        }
     }
 }
