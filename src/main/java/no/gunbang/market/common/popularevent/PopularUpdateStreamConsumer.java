@@ -33,7 +33,7 @@ public class PopularUpdateStreamConsumer {
         //이벤트 누적 개수 계산
         Map<String, Long> countByTarget = records.stream()
                 .map(MapRecord::getValue)
-                .map(data -> (String) data.get("target"))
+                .map(data -> (String) data.get("event"))
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         //마켓, 경매 둘 다 별도로 처리

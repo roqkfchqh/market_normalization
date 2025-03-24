@@ -23,8 +23,7 @@ public class PopularUpdateAspect {
 
         //Stream 에 이벤트 push
         Map<String, String> data = Map.of(
-                "target", triggerPopularUpdate.target().name(),
-                "timestamp", String.valueOf(System.currentTimeMillis())
+                "event", triggerPopularUpdate.target().name()
         );
 
         redisTemplate.opsForStream().add(STREAM_KEY, data);
