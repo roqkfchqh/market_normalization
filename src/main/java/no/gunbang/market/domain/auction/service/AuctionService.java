@@ -11,6 +11,8 @@ import no.gunbang.market.common.entity.Status;
 import no.gunbang.market.common.aop.annotation.SemaphoreLock;
 import no.gunbang.market.common.exception.CustomException;
 import no.gunbang.market.common.exception.ErrorCode;
+import no.gunbang.market.common.popularevent.PopularUpdateTarget;
+import no.gunbang.market.common.popularevent.TriggerPopularUpdate;
 import no.gunbang.market.domain.auction.cursor.AuctionCursorValues;
 import no.gunbang.market.domain.auction.dto.request.AuctionRegistrationRequestDto;
 import no.gunbang.market.domain.auction.dto.request.BidAuctionRequestDto;
@@ -126,6 +128,7 @@ public class AuctionService {
 
     @SemaphoreLock(key = "bid_auction")
     @Transactional
+    @TriggerPopularUpdate(target = PopularUpdateTarget.AUCTION)
     public BidAuctionResponseDto bidAuction(
         Long userId,
         BidAuctionRequestDto requestDto

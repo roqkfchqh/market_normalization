@@ -14,6 +14,8 @@ import no.gunbang.market.common.entity.Status;
 import no.gunbang.market.common.aop.annotation.SemaphoreLock;
 import no.gunbang.market.common.exception.CustomException;
 import no.gunbang.market.common.exception.ErrorCode;
+import no.gunbang.market.common.popularevent.PopularUpdateTarget;
+import no.gunbang.market.common.popularevent.TriggerPopularUpdate;
 import no.gunbang.market.domain.market.cursor.MarketCursorValues;
 import no.gunbang.market.domain.market.dto.response.MarketListResponseDto;
 import no.gunbang.market.domain.market.dto.response.MarketPopularResponseDto;
@@ -97,6 +99,7 @@ public class MarketService {
     }
 
     @Transactional
+    @TriggerPopularUpdate(target = PopularUpdateTarget.MARKET)
     public MarketResponseDto registerMarket(
         Long userId,
         MarketRegistrationRequestDto requestDto
@@ -136,6 +139,7 @@ public class MarketService {
 //    @RedissonLock(key = "redisson_trade_market")
     @SemaphoreLock(key = "semaphore_trade_market")
     @Transactional
+    @TriggerPopularUpdate(target = PopularUpdateTarget.MARKET)
     public List<MarketTradeResponseDto> tradeMarket(
         Long buyerId,
         MarketTradeRequestDto requestDto
