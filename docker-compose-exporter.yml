@@ -1,0 +1,38 @@
+services:
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+    restart: always
+
+  mysqld-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: mysqld-exporter
+    ports:
+      - "9104:9104"
+    networks:
+      - monitoring
+    environment:
+      - DATA_SOURCE_NAME="root:비번@tcp(host.docker.internal:3306)/"
+    command:
+      - "--mysqld.username=root:비번"
+      - "--mysqld.address=host.docker.internal:3306"
+    restart: always
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    restart: always
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://host.docker.internal:6379
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge

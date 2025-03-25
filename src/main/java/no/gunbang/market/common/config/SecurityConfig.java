@@ -28,7 +28,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/login", "/markets/main", "/auctions/main",
-                    "/markets/populars", "/auctions/populars", "/actuator/health").permitAll()
+                    "/markets/populars", "/auctions/populars", "/actuator/**").permitAll()
                 .requestMatchers("/auth/logout", "/markets/**", "/auctions/**", "/user/**")
                 .authenticated()
                 .anyRequest().authenticated()
