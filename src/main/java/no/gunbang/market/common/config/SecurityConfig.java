@@ -27,8 +27,8 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/markets/main", "/auctions/main",
-                    "/markets/populars", "/auctions/populars", "/actuator/**").permitAll()
+                .requestMatchers("/auth/login", "/markets/main-main", "/auctions/main-main",
+                    "/markets/populars-main", "/auctions/populars-main", "/actuator/**").permitAll()
                 .requestMatchers("/auth/logout", "/markets/**", "/auctions/**", "/user/**")
                 .authenticated()
                 .anyRequest().authenticated()
