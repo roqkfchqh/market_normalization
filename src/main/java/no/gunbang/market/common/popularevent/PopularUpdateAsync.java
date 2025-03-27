@@ -17,6 +17,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.Semaphore;
 
 @Component
 @RequiredArgsConstructor
@@ -30,28 +31,45 @@ public class PopularUpdateAsync {
     private static final String AUCTION_CACHE_KEY = "popular:auction:items";
     private static final int POPULAR_LIMIT = 200;
 
+    private final Semaphore marketSemaphore = new Semaphore(1);
+    private final Semaphore auctionSemaphore = new Semaphore(1);
+
     @Async
     @EventListener(ApplicationReadyEvent.class)
     public void updateMarketPopulars() {
-        Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
-        Page<MarketPopularResponseDto> result = marketRepository.findPopularMarketItems(getStartDate(), pageable);
+        if (!marketSemaphore.tryAcquire()) {
+            return;
+        }
+        try {
+            Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
+            Page<MarketPopularResponseDto> result = marketRepository.findPopularMarketItems(getStartDate(), pageable);
 
-        redisTemplate.opsForValue().set(
-                MARKET_CACHE_KEY,
-                serialize(result.getContent())
-        );
+            redisTemplate.opsForValue().set(
+                    MARKET_CACHE_KEY,
+                    serialize(result.getContent())
+            );
+        } finally {
+            marketSemaphore.release(); // 반드시 release
+        }
     }
 
     @Async
     @EventListener(ApplicationReadyEvent.class)
     public void updateAuctionPopulars() {
-        Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
-        Page<AuctionListResponseDto> result = auctionRepository.findPopularAuctionItems(getStartDate(), pageable);
+        if (!auctionSemaphore.tryAcquire()) {
+            return; // 이미 실행 중이면 스킵
+        }
+        try {
+            Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
+            Page<AuctionListResponseDto> result = auctionRepository.findPopularAuctionItems(getStartDate(), pageable);
 
-        redisTemplate.opsForValue().set(
-                AUCTION_CACHE_KEY,
-                serialize(result.getContent())
-        );
+            redisTemplate.opsForValue().set(
+                    AUCTION_CACHE_KEY,
+                    serialize(result.getContent())
+            );
+        } finally {
+            auctionSemaphore.release(); // 반드시 release
+        }
     }
 
     private String serialize(Object value) {
