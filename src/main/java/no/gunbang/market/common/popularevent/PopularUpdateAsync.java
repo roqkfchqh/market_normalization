@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @RequiredArgsConstructor
@@ -34,25 +35,44 @@ public class PopularUpdateAsync {
 
     private final Semaphore marketSemaphore = new Semaphore(1);
     private final Semaphore auctionSemaphore = new Semaphore(1);
+    private final AtomicInteger executionCounter = new AtomicInteger(0);
 
     @Async
     @Transactional(readOnly = true)
-    @EventListener(ApplicationReadyEvent.class)
     public void updateMarketPopulars() {
         if (!marketSemaphore.tryAcquire()) {
             return;
         }
         try {
+            executionCounter.incrementAndGet();
             Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
             Page<MarketPopularResponseDto> result = marketRepository.findPopularMarketItems(getStartDate(), pageable);
-
+            Thread.sleep(1000);
             redisTemplate.opsForValue().set(
                     MARKET_CACHE_KEY,
                     serialize(result.getContent())
             );
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         } finally {
             marketSemaphore.release();
         }
+    }
+
+    public int getExecutionCount() {
+        return executionCounter.get();
+    }
+
+    @Async
+    public void updateMarketPopularsError() throws InterruptedException {
+        executionCounter.incrementAndGet();
+        Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
+        Page<MarketPopularResponseDto> result = marketRepository.findPopularMarketItems(getStartDate(), pageable);
+        Thread.sleep(1000);
+        redisTemplate.opsForValue().set(
+                MARKET_CACHE_KEY,
+                serialize(result.getContent())
+        );
     }
 
     @Async
