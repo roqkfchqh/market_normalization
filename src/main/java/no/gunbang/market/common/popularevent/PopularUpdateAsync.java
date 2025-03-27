@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.Semaphore;
@@ -35,6 +36,7 @@ public class PopularUpdateAsync {
     private final Semaphore auctionSemaphore = new Semaphore(1);
 
     @Async
+    @Transactional(readOnly = true)
     @EventListener(ApplicationReadyEvent.class)
     public void updateMarketPopulars() {
         if (!marketSemaphore.tryAcquire()) {
@@ -49,15 +51,16 @@ public class PopularUpdateAsync {
                     serialize(result.getContent())
             );
         } finally {
-            marketSemaphore.release(); // 반드시 release
+            marketSemaphore.release();
         }
     }
 
     @Async
+    @Transactional(readOnly = true)
     @EventListener(ApplicationReadyEvent.class)
     public void updateAuctionPopulars() {
         if (!auctionSemaphore.tryAcquire()) {
-            return; // 이미 실행 중이면 스킵
+            return;
         }
         try {
             Pageable pageable = PageRequest.of(0, POPULAR_LIMIT);
@@ -68,7 +71,7 @@ public class PopularUpdateAsync {
                     serialize(result.getContent())
             );
         } finally {
-            auctionSemaphore.release(); // 반드시 release
+            auctionSemaphore.release();
         }
     }
 
