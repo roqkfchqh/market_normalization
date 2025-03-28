@@ -45,7 +45,6 @@ public class PopularUpdateStreamConsumer {
                 log.info("락을 획득하지 못했습니다. streamKey: {}", streamKey);
                 return;
             }
-            log.info("락 획득: {}", streamKey);
             List<MapRecord<String, Object, Object>> records =
                     redisTemplate.opsForStream().read(StreamOffset.fromStart(streamKey));
 
