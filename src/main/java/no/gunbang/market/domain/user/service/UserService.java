@@ -24,9 +24,9 @@ public class UserService {
         User user = userRepository.findByEmail(dto.getEmail())
             .orElseThrow(() -> new CustomException(ErrorCode.WRONG_EMAIL_OR_PASSWORD));
 
-//        if(user.getId() == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())){
-//            throw new CustomException(ErrorCode.WRONG_EMAIL_OR_PASSWORD);
-//        }
+        if(user.getId() == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())){
+            throw new CustomException(ErrorCode.WRONG_EMAIL_OR_PASSWORD);
+        }
         return user.getId();
     }
 

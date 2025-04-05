@@ -18,20 +18,20 @@ public class AuctionScheduler {
 
     private final AuctionRepository auctionRepository;
 
-//    // 30초마다 마감이 지난 경매는 ON_SALE에서 COMPLETED로 변경
-//    @Scheduled(cron = "*/30 * * * * *")
-//    @Transactional
-//    public void checkExpiredAuctions() {
-//
-//        List<Auction> auctionList = new ArrayList<>();
-//
-//        auctionList = auctionRepository.findByDueDateBeforeAndStatus(
-//            LocalDateTime.now(),
-//            Status.ON_SALE
-//        );
-//
-//        auctionList.forEach(this::makeExpiredAuctionCompleted);
-//    }
+    // 30초마다 마감이 지난 경매는 ON_SALE에서 COMPLETED로 변경
+    @Scheduled(cron = "*/30 * * * * *")
+    @Transactional
+    public void checkExpiredAuctions() {
+
+        List<Auction> auctionList = new ArrayList<>();
+
+        auctionList = auctionRepository.findByDueDateBeforeAndStatus(
+            LocalDateTime.now(),
+            Status.ON_SALE
+        );
+
+        auctionList.forEach(this::makeExpiredAuctionCompleted);
+    }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void makeExpiredAuctionCompleted(Auction auction) {
