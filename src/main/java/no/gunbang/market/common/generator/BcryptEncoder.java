@@ -1,4 +1,4 @@
-package no.gunbang.market.common;
+package no.gunbang.market.common.generator;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 

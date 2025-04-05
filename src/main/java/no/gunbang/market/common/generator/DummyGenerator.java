@@ -1,4 +1,4 @@
-package no.gunbang.market.common;
+package no.gunbang.market.common.generator;
 
 import java.io.FileWriter;
 import java.io.IOException;
