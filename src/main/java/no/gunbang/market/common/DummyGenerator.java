@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-public class ddd {
+public class DummyGenerator {
 
     private static final Random random = new Random();
     private static final int USER_COUNT = 400_000;
