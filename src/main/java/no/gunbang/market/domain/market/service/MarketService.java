@@ -119,7 +119,6 @@ public class MarketService {
     }
 
     @Transactional
-    @TriggerPopularUpdate(target = PopularUpdateTarget.MARKET)
     public MarketResponseDto registerMarket(
         Long userId,
         MarketRegistrationRequestDto requestDto
