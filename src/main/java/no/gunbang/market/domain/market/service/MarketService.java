@@ -40,7 +40,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 @Service
 public class MarketService {
@@ -79,6 +78,7 @@ public class MarketService {
     public Page<MarketPopularResponseDto> getPopulars(Pageable pageable) {
         String json = redisTemplate.opsForValue().get("popular:market:items");
         if (json == null) {
+            log.info("fallback 발생");
             //fallback: 기존 쿼리
             return marketRepository.findPopularMarketItems(getStartDate(), pageable);
         }
@@ -119,26 +119,20 @@ public class MarketService {
     }
 
     @Transactional
+    @TriggerPopularUpdate(target = PopularUpdateTarget.MARKET)
     public MarketResponseDto registerMarket(
         Long userId,
         MarketRegistrationRequestDto requestDto
     ) {
-
         User foundUser = findUserById(userId);
-
         Long itemId = requestDto.getItemId();
-
         Item foundItem = findItemById(itemId);
-
         int amount = requestDto.getAmount();
-
         Inventory inventory = inventoryRepository.findByUserIdAndItemIdForUpdate(
             userId,
             itemId
         );
-
         inventory.validateAmount(amount);
-
         inventory.updateInventory( amount * -1);
 
         Market marketToRegister = Market.of(
@@ -148,9 +142,7 @@ public class MarketService {
             foundUser,
             foundItem
         );
-
         Market registeredMarket = marketRepository.save(marketToRegister);
-
         return MarketResponseDto.toDto(registeredMarket);
     }
 
@@ -216,11 +208,8 @@ public class MarketService {
     @Transactional
     public void deleteMarket(Long userId, Long marketId) {
         Market foundMarket = marketRepository.findByIdForUpdate(marketId);
-
         foundMarket.validateUser(userId);
-
         Inventory foundInventory = findInventoryByUserIdAndItemId(userId, foundMarket.getItem().getId());
-
         foundInventory.updateInventory(foundMarket.getAmount());
         foundMarket.delete();
     }
@@ -231,7 +220,6 @@ public class MarketService {
     private void updateOrCreateInventory(Item item, User user, int amount) {
         Inventory inventory = inventoryRepository
             .findByUserIdAndItemIdForUpdate(user.getId(), item.getId());
-
         if (inventory == null) {
             if (amount < 0) {
                 throw new CustomException(ErrorCode.LACK_OF_SELLER_INVENTORY);
