@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 @RequiredArgsConstructor
@@ -32,14 +32,14 @@ public class PopularUpdateAsync {
     private static final String AUCTION_CACHE_KEY = "popular:auction:items";
     private static final int POPULAR_LIMIT = 200;
 
-    private final Semaphore marketSemaphore = new Semaphore(1);
-    private final Semaphore auctionSemaphore = new Semaphore(1);
+    private final ReentrantLock marketLock = new ReentrantLock();
+    private final ReentrantLock auctionLock = new ReentrantLock();
 
     @Async
     @Transactional(readOnly = true)
     @EventListener(ApplicationReadyEvent.class)
     public void updateMarketPopulars() {
-        if (!marketSemaphore.tryAcquire()) {
+        if (!marketLock.tryLock()) {
             return;
         }
         try {
@@ -50,7 +50,7 @@ public class PopularUpdateAsync {
                     serialize(result.getContent())
             );
         } finally {
-            marketSemaphore.release();
+            marketLock.unlock();
         }
     }
 
@@ -58,7 +58,7 @@ public class PopularUpdateAsync {
     @Transactional(readOnly = true)
     @EventListener(ApplicationReadyEvent.class)
     public void updateAuctionPopulars() {
-        if (!auctionSemaphore.tryAcquire()) {
+        if (!auctionLock.tryLock()) {
             return;
         }
         try {
@@ -70,7 +70,7 @@ public class PopularUpdateAsync {
                     serialize(result.getContent())
             );
         } finally {
-            auctionSemaphore.release();
+            auctionLock.unlock();
         }
     }
 
