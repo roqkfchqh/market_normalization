@@ -43,9 +43,6 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'io.micrometer:micrometer-registry-prometheus'
-
 	//querydsl
 	implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
 	annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
@@ -56,6 +53,11 @@ dependencies {
 
 	// Redisson
 	implementation 'org.redisson:redisson-spring-boot-starter:3.17.6'
+
+	// prometheus
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
 }
 
 tasks.named('test') {
